@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using myTask.Models;
-using myTask.Services;
+using myTask.Interfaces;
 
 namespace myTask.Controllers;
 
@@ -8,39 +8,58 @@ namespace myTask.Controllers;
 [Route("[controller]")]
 public class myTaskController : ControllerBase
 {
- [HttpGet]
-    public ActionResult<List<theTask>> Get()
+    ITaskService TaskService;
+    public myTaskController(ITaskService TaskService)
     {
-        return theTaskService.GetAll();
+        this.TaskService = TaskService;
     }
+    [HttpGet]
+    public ActionResult<List<theTask>> GetAll()=>
+        TaskService.GetAll();
+    
 
     [HttpGet("{id}")]
     public ActionResult<theTask> Get(int id)
     {
-        var task = theTaskService.GetById(id);
+        var task = TaskService.Get(id);
         if (task == null)
             return NotFound();
         return task;
     }
 
     [HttpPost]
-    public ActionResult Post(theTask newTask)
+    public IActionResult Create(theTask task)
     {
-        var newId = theTaskService.Add(newTask);
+        TaskService.Add(task);
+        return CreatedAtAction(nameof(Create), new {id=task.Id}, task);
 
-        return CreatedAtAction("Post", 
-            new {id = newId}, theTaskService.GetById(newId));
     }
-
+    
     [HttpPut("{id}")]
-    public ActionResult Put(int id,theTask newTask)
-    {
-        var result = theTaskService.Update(id, newTask);
-        if (!result)
+    public IActionResult Update(int id, theTask task)
         {
-            return BadRequest();
+            if (id != task.Id)
+                return BadRequest();
+
+            var existingTask = TaskService.Get(id);
+            if (existingTask is null)
+                return  NotFound();
+
+            TaskService.Update(task);
+
+            return NoContent();
         }
-        return NoContent();
-    }
+
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
+        {
+            var task = TaskService.Get(id);
+            if (task is null)
+                return  NotFound();
+
+            TaskService.Delete(id);
+
+            return Content(TaskService.Count.ToString());
+        }
     
 }

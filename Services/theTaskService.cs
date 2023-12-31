@@ -1,78 +1,73 @@
+using myTask.Interfaces;
 using myTask.Models;
 namespace myTask.Services;
+using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
+using System.IO;
+using System.Diagnostics;
 
-public static class theTaskService
+[DebuggerDisplay($"{{{nameof(GetDebuggerDisplay)}(),nq}}")]
+public class theTaskService : ITaskService
 {
-    private static List<theTask> tasks;
-
-    static theTaskService()
+    List<theTask> tasks {get;}
+    
+    private string fileName ="task.jsom";
+    public theTaskService(IWebHostEnvironment  webHost)
     {
-        tasks = new List<theTask>
+        this.fileName =Path.Combine(webHost.ContentRootPath, "task.json");
+        using (var jsonFile = File.OpenText(fileName))
         {
-            new theTask { Id = 1, Name = "homework", IsDone = false},
-            new theTask { Id = 2, Name = "bake a cake", IsDone = false},
-            new theTask { Id = 3, Name = "wosh the room", IsDone = true}
-        };
+            tasks = JsonSerializer.Deserialize<List<theTask>>(jsonFile.ReadToEnd(),
+            new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+           
+            
+        }
+       
     }
+        private void saveToFile()
+        {
+            File.WriteAllText(fileName, JsonSerializer.Serialize(tasks));
+        }
+    public  List<theTask> GetAll() => tasks;
 
-    public static List<theTask> GetAll() => tasks;
-
-    public static theTask GetById(int id) 
+    public  theTask Get(int id) 
     {
         return tasks.FirstOrDefault(p => p.Id == id);
     }
 
-    public static int Add(theTask newTask)
+    public void Add(theTask newTask)
     {
-        if (tasks.Count == 0)
-
-            {
-                newTask.Id = 1;
-            }
-            else
-            {
-        newTask.Id =  tasks.Max(p => p.Id) + 1;
-
-            }
-
+        newTask.Id = tasks.Count()+1;
         tasks.Add(newTask);
-
-        return newTask.Id;
+        saveToFile();
     }
   
-    public static bool Update(int id, theTask newTask)
+    public void Delete(int id)
     {
-        if (id != newTask.Id)
-            return false;
+        var task = Get(id);
+        if (task is null)
+            return;
 
-        var existingTask = GetById(id);
-        if (existingTask == null )
-            return false;
+        tasks.Remove(task);
+        saveToFile();
+    }
 
-        var index = tasks.IndexOf(existingTask);
-        if (index == -1 )
-            return false;
+    public void Update(theTask task)
+        {
+            var index = tasks.FindIndex(p => p.Id == task.Id);
+            if (index == -1)
+                return;
 
-        tasks[index] = newTask;
+            tasks[index] = task;
+            saveToFile();
+        }
+        public int Count => tasks.Count();
 
-        return true;
-    }  
-
-      
-    public static bool Delete(int id)
+    private string GetDebuggerDisplay()
     {
-        var existingTask = GetById(id);
-        if (existingTask == null )
-            return false;
-
-        var index = tasks.IndexOf(existingTask);
-        if (index == -1 )
-            return false;
-
-        tasks.RemoveAt(index);
-        return true;
-    }  
-
-
-
+        return ToString();
+    }
 }
